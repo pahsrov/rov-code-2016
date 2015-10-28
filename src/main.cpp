@@ -13,25 +13,23 @@
 void loop(int sockfd, int jsfd, const struct js_layout &layout)
 {
         struct js_event event;
-        struct jsmath::js_map js(jsfd);
-        struct jsmath::js_send motors;
+        struct jsmath::js_log js(jsfd);
+        struct jsmath::motor_vals motors;
         Bstrlib::CBString input;
 
         try {
-                jsmath::js_map js(jsfd);
+                jsmath::js_log js(jsfd);
+        } catch (std::exception &e) {
+                fprintf(stderr, "ERROR: %s\n", e.what());
         }
         while (js_read(jsfd, event) != -1 && !js_quit(event, layout) ) {
                 try {
-                        jsmath::read_to_map(js, event);
-                        jsmath::map_to_send(motors, js, layout);
-                        jsmath::sender(sockfd, motors, write);
+                        jsmath::event_to_log(event, js);
+                        jsmath::log_to_motors(motors, js, layout);
+                        jsmath::send_motors(sockfd, motors, 0);
                         /* cli_read(sockfd, input); */
-                } catch (struct sys_exception &e) {
-                        fprintf(stderr, "%s\n", e.what());
-                        return;
-                } catch (const char *msg) {
-                        fprintf(stderr, "ERROR: %s\n", msg);
-                        return;
+                } catch (std::exception &e) {
+                        fprintf(stderr, "%s", e.what());
                 }
         }
 
@@ -72,14 +70,9 @@ int main(int argc, char **argv)
         /* open network connection */
         try {
                 sockfd = cli_sock(port, argv[3]);
-        } catch (CBStringException e) {
-                fprintf(stderr, "Error: %s\n", e.what());
-                return -1;
-        } catch (sys_exception e) {
-                fprintf(stderr, "Error: %s\n", e.what());
-                return -1;
+        } catch (std::exception &e) {
+                fprintf(stderr, "%s", e.what());
         }
-
         /* open joystick */
         if (jsfd = open(argv[1], O_RDONLY | O_NONBLOCK), jsfd < 0) {
                 perror("Unable to open joystick");

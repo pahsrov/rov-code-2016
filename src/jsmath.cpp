@@ -1,5 +1,6 @@
 #include <sys/ioctl.h>          /* For ioctl() */
 #include <math.h>               /* For hypot(), fabs(), and degrees() */
+#include <sys/socket.h>
 #include "../include/bstrwrap.h" /* For CBString */
 #include "../include/jsmath.hpp" /* For function and struct definitions */
 #include "../include/exceptions.hpp"
@@ -13,25 +14,23 @@ namespace jsmath {
         const int horizontal_mid = horizontal_max / 2;
         const int horizontal_offset = 1000;
 
-        js_map::js_map(int fd) {
-                this->fd = fd;
-                numax = 0;
-                numbut = 0;
+        js_log::js_log(int fd) : fd(fd) {
+                numax = js_num_ax(fd);
+                numbut = js_num_but(fd);
                 ax = NULL;
                 but = NULL;
 
-                get_num_input(*this, fd);
                 allocate_input(*this);
         }
 
-        js_map::js_map() {
+        js_log::js_log() {
                 numax = 0;
                 numbut = 0;
                 ax = NULL;
                 but = NULL;
         }
 
-        js_map::~js_map() {
+        js_log::~js_log() {
                 if (ax && but && numax && numbut)
                         free_input(*this);
         }
@@ -80,47 +79,38 @@ namespace jsmath {
         }
 
         /* Updates joystick values with an event */
-        void read_to_map(struct jsmath::js_map &js, struct js_event &event)
+        void event_to_log(struct js_event &event, struct jsmath::js_log &js)
         {
                 if (!js.ax || js.but)
-                        throw js_exception("Unallocated memory for button inputs");
+                        throw_js_exception("Unallocated memory for button inputs");
                 /* Remove initial differentiation between initial events */
                 event.type &= ~JS_EVENT_INIT;
                 if (event.type == JS_EVENT_AXIS) {
                         if (event.number >= js.numax)
-                                throw js_exception("Joystick axis event out of bounds. (%d max %d)", event.number, js.numax);
+                                throw_js_exception("Joystick axis event out of bounds. (%d max %d)", event.number, js.numax);
                         js.ax[event.number] = event.value;
                 } else if (event.type == JS_EVENT_BUTTON) {
                         if (event.number >= js.numbut)
-                                throw js_exception("Joystick button event out of bounds. (%d max %d)", event.number, js.numbut);
+                                throw_js_exception("Joystick button event out of bounds. (%d max %d)", event.number, js.numbut);
                         js.but[event.number] = event.value;
                 }
                 js.last = &event;
 
         }
 
-        /* Get number of buttons and axes */
-        void get_num_input(struct jsmath::js_map &map, int fd)
-        {
-                if (ioctl(fd, JSIOCGAXES, &map.numax) < 0)
-                        throw sys_exception("ioctl");
-                if (ioctl(fd, JSIOCGBUTTONS, &map.numbut) < 0)
-                        throw sys_exception("ioctl");
-        }
-
         /* Allocate memory for storing inputs */
-        void allocate_input(struct jsmath::js_map &map)
+        void allocate_input(struct jsmath::js_log &map)
         {
                 map.ax = new int[map.numax];
                 map.but = new int[map.numbut];
 
                 if (!map.ax || !map.but)
-                        throw sys_exception("new int[]");
+                        throw_sys_exception("new int[]");
                 map.allocd = 1;
         }
 
         /* Deallocate memory for inputs */
-        void free_input(struct jsmath::js_map &map)
+        void free_input(struct jsmath::js_log &map)
         {
                 delete[] map.ax;
                 delete[] map.but;
@@ -165,7 +155,7 @@ namespace jsmath {
                         AB = tmap(horizontal_max - CD, CD);
                         break;
                 case 0:
-                        throw js_exception("Joystick outside of any quadrent");
+                        throw_js_exception("Joystick outside of any quadrent");
                 }
         }
 
@@ -180,7 +170,7 @@ namespace jsmath {
         }
 
         /* Uses the layout and the last read motors to get the A B C D and V(ertical) motors */
-        int map_to_send(struct jsmath::js_send &motors, const struct jsmath::js_map &map, const struct js_layout &layout)
+        void map_to_send(struct jsmath::motor_vals &motors, const struct jsmath::js_log &map, const struct js_layout &layout)
         {
                 const int jsmax = 32727;
                 double rot;
@@ -195,23 +185,17 @@ namespace jsmath {
                 motors.B = fix_motor(AB - rot);
                 motors.C = fix_motor(CD + rot);
                 motors.D = fix_motor(CD - rot);
-
-                return 0;
         }
 
-        int sender(int fd, struct jsmath::js_send motors, long int (*sender)(int fd, const void *, size_t))
+        void sender(int fd, struct jsmath::motor_vals motors, int opt)
         {
                 Bstrlib::CBString buf;
+                buf.format("A = %d\nB = %d\nC = %d\nD = %d\nV = %d\n",
+                           motors.A, motors.B, motors.C, motors.D, motors.V);
 
-                try {
-                        buf.format("A = %d\nB = %d\nC = %d\nD = %d\nV = %d\n",
-                                   motors.A, motors.B, motors.C, motors.D, motors.V);
-                } catch (Bstrlib::CBStringException e) {
-                        fprintf(stderr, "Error: %s\n", e.what());
-                        return -1;
-                }
+                if (send(fd, (const char *)buf, buf.length(), opt) < 0)
+                        throw_sys_exception("Send");
 
-                return sender(fd, (const char *)buf, buf.length());
         }
 
 }

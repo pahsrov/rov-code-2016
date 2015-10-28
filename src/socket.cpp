@@ -22,7 +22,7 @@ int cli_sock(int port, const char *ip)
 
         /* Get socket to write to */
         if (fd = socket(AF_INET, SOCK_STREAM, 0), fd < 0)
-                throw sys_exception("socket");
+                throw_sys_exception("socket");
 
 
         /* ip -> opt, turn localhost to the right ip */
@@ -30,11 +30,11 @@ int cli_sock(int port, const char *ip)
                 bip = "127.0.0.1";
 
         if (inet_pton(AF_INET, (const char *)bip, &opt.sin_addr) <= 0)
-                throw sys_exception("inet_pton");
+                throw_sys_exception("inet_pton");
 
         /* connect with opt options */
         if (connect(fd, (struct sockaddr *)&opt, sizeof(opt)) < 0)
-                throw sys_exception("Unable to connect to server.");
+                throw_sys_exception("Unable to connect to server.");
 
         return fd;
 }
@@ -51,5 +51,5 @@ void cli_read(int fd, Bstrlib::CBString &input)
          * throw an exception
          */
         if (errno != EAGAIN)
-                throw sys_exception("Error reading from socket");
+                throw_sys_exception("Error reading from socket");
 }

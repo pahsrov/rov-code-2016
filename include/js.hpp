@@ -19,6 +19,10 @@ int js_read(int jsfd, struct js_event &js);
 
 int js_quit(const struct js_event &js, const struct js_layout &layout);
 
+int js_num_ax(int fd);
+
+int js_num_but(int fd);
+
 void js_load_config(FILE *config, struct js_layout &layout);
 
 void js_write_config(FILE *config, const struct js_layout &layout);

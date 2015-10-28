@@ -25,7 +25,7 @@ int js_read(int fd, struct js_event &js)
                         return 1;
 
                 /* otherwise, something went wrong */
-                throw sys_exception("read");
+                throw_sys_exception("read");
         }
 
         /*
@@ -68,7 +68,7 @@ void js_write_config(FILE *config, const struct js_layout &layout)
         auto confprint = [=](const char *var, int val)
                 {
                         if (fprintf(config, "%s = %d\n", var, val) < 0)
-                                throw sys_exception("fprintf");
+                                throw_sys_exception("fprintf");
                 };
 
         confprint("x_ax", layout.x_ax);
@@ -117,7 +117,7 @@ void js_config_mode(FILE *config, int fd)
                                 } while (js.type != type && err > 0);
 
                                 if (errno != EAGAIN)
-                                        throw sys_exception("read");
+                                        throw_sys_exception("read");
                                 /* Wait for user to press enter */
                                 getchar();
 
@@ -172,14 +172,31 @@ void js_load_config(FILE *config, struct js_layout &layout)
                         layout.cam_ret = val;
                         break;
                 default:
-                        throw js_exception("Could not parse line %d in config.\n"
+                        throw_js_exception("Could not parse line %d in config.\n"
                                            "%s = %d", line_num, var, val);
                 }
         }
 
         /* either the file ended or something went wrong */
         if (ferror(config))
-                throw sys_exception("fscanf");
+                throw_sys_exception("fscanf");
          else if (!feof(config))
-                 throw js_exception("Unable to parse line %d in config file", line_num);
+                 throw_js_exception("Unable to parse line %d in config file", line_num);
 }
+
+int js_num_ax(int fd)
+{
+        int ax;
+        if (ioctl(fd, JSIOCGAXES, &ax) < 0)
+                throw_sys_exception("ioctl: fd = %d", fd);
+        return ax;
+}
+
+int js_num_but(int fd)
+{
+        int but;
+        if (ioctl(fd, JSIOCGBUTTONS, &but) < 0)
+                throw_sys_exception("ioctl: fd = %d", fd);
+        return but;
+}
+

@@ -5,7 +5,7 @@
 
 namespace jsmath {
 
-        struct js_map {
+        struct js_log {
                 /* axes */
                 int *ax;
 
@@ -20,25 +20,23 @@ namespace jsmath {
 
                 int fd;
 
-                js_map(int fd);
-                js_map();
-                ~js_map();
+                js_log(int fd);
+                js_log();
+                ~js_log();
         };
 
-        struct js_send {
+        struct motor_vals {
                 int A, B, C, D, V;
         };
 
-        void read_to_map(struct jsmath::js_map &map, struct js_event &event);
+        void event_to_log(struct js_event &event, struct jsmath::js_log &map);
 
-        void get_num_input(struct jsmath::js_map &map, int fd);
+        void allocate_input(struct jsmath::js_log &map);
 
-        void allocate_input(struct jsmath::js_map &map);
+        void free_input(struct jsmath::js_log &map);
 
-        void free_input(struct jsmath::js_map &map);
+        void log_to_motors(struct jsmath::motor_vals &motors,
+                        const struct jsmath::js_log &map, const struct js_layout &layout);
 
-        int map_to_send(struct jsmath::js_send &motors,
-                        const struct jsmath::js_map &map, const struct js_layout &layout);
-
-        int sender(int fd, struct jsmath::js_send motors, long int (*sender)(int fd, const void *, size_t));
+        void send_motors(int fd, struct jsmath::motor_vals motors, int opt);
 }
