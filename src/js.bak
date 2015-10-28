@@ -1,0 +1,180 @@
+#include <unistd.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
+#include "../include/js.h"
+
+#ifdef __GNUC__
+#define lambda(rtn, fcn)                        \
+        ({                                      \
+                rtn FCN fcn;                \
+                FCN;                            \
+        })
+#endif
+
+enum conf_var_name {
+        NOMATCH,
+        XAXIS,
+        YAXIS,
+        ZAXIS,
+        ROTAXIS,
+        QUITBUT,
+        CAMRET
+};
+
+int js_read(int jsfd, struct js_event *js)
+{
+        if (read(jsfd, js, sizeof(struct js_event)) < 0) {
+                /* nothing to be read */
+                if(errno == EAGAIN)
+                        return 1;
+
+                /* read failed */
+                perror("read");
+                return -1;
+        }
+
+        /* Don't differentiate between init types */
+        js->type &= JS_EVENT_INIT;
+        return 0;
+}
+
+int js_quit(const struct js_event *js, const struct js_layout *layout)
+{
+        if (js->value == 1 && js->type == JS_EVENT_BUTTON && js->number == layout->quit_but)
+                return 1;
+        return 0;
+}
+
+enum conf_var_name js_match_confvar(const char *var)
+{
+        /* closure, not standard C */
+        int matchvar(const char *name)
+        {
+                return strcmp(name, var);
+        }
+
+        if (!matchvar("x_ax"))
+                return XAXIS;
+        else if (!matchvar("y_ax"))
+                return YAXIS;
+        else if (!matchvar("z_ax"))
+                return ZAXIS;
+        else if (!matchvar("rot_ax"))
+                return ROTAXIS;
+        else if (!matchvar("quit_but"))
+                return QUITBUT;
+        else if (!matchvar("cam_ret"))
+                return CAMRET;
+        return NOMATCH;
+}
+
+int js_write_config(FILE *config, struct js_layout *layout)
+{
+        int confprint(char *var, int val)
+        {
+                return fprintf(config, "%s = %d\n", var, val);
+        }
+
+        if (confprint("x_ax", layout->x_ax) < 0 ||
+            confprint("y_ax", layout->y_ax) < 0 ||
+            confprint("z_ax", layout->z_ax) < 0 ||
+            confprint("rot_ax", layout->rot_ax) < 0 ||
+            confprint("quit_but", layout->quit_but) < 0 ||
+            confprint("cam_ret", layout->cam_ret) < 0) {
+                perror("fprintf");
+                return -1;
+        }
+
+        return 0;
+
+}
+
+int js_write_def_config(FILE *config)
+{
+        struct js_layout layout = (struct js_layout) {
+                .x_ax = 0,
+                .y_ax = 1,
+                .z_ax = 2,
+                .rot_ax = 3,
+                .quit_but = 4,
+                .cam_ret = 5
+        };
+
+        return js_write_config(config, &layout);
+}
+
+void js_config_mode(FILE *config, int fd)
+{
+        struct js_event js;
+        struct js_layout layout;
+        typedef int (*get_input_fcn)(char *msg);
+        get_input_fcn get_input_builder(int type)
+        {
+                return lambda(int, (char *msg)
+                              {
+                                      printf("Press %s.\n\n", msg);
+                                      while(js_read(fd, &js) || js.type == type);
+                                      return js.number;
+                              });
+        }
+        get_input_fcn get_ax = get_input_builder(JS_EVENT_BUTTON);
+        get_input_fcn get_but = get_input_builder(JS_EVENT_AXIS);
+
+        layout.x_ax = get_ax("Strafe axis");
+        layout.y_ax = get_ax("Vertical axis");
+        layout.z_ax = get_ax("Forward reverse axis");
+        layout.rot_ax = get_ax("Rotational axis");
+        layout.quit_but = get_but("Quit button");
+        layout.cam_ret = get_but("Camera recenter button");
+
+        js_write_config(config, &layout);
+
+}
+
+int js_load_config(FILE *config, struct js_layout *layout)
+{
+        char *var;
+        int val;
+        int line_num = 0;
+
+        /* read the config file and assign values based on var name */
+        while (fscanf(config, "%ms = %d", &var, &val) == 2) {
+                line_num++;
+                switch (js_match_confvar(var)) {
+                case XAXIS:
+                        layout->x_ax = val;
+                        break;
+                case YAXIS:
+                        layout->y_ax = val;
+                        break;
+                case ZAXIS:
+                        layout->z_ax = val;
+                        break;
+                case ROTAXIS:
+                        layout->rot_ax = val;
+                        break;
+                case QUITBUT:
+                        layout->quit_but = val;
+                        break;
+                case CAMRET:
+                        layout->cam_ret = val;
+                        break;
+                default:
+                        fprintf(stderr,
+                                "Warning: Could not parse line %d in config file.\n"
+                                "%s = %d\n", line_num, var, val);
+                }
+        }
+
+        /* either the file ended or something went wrong */
+        if(ferror(config)) {
+                perror("fscanf");
+                return -1;
+        } else if (!feof(config)) {
+                fprintf(stderr, "Error on line %d in config\n", line_num);
+                return -1;
+        }
+
+        return 0;
+}
