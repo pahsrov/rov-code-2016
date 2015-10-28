@@ -81,7 +81,7 @@ namespace jsmath {
         /* Updates joystick values with an event */
         void event_to_log(struct js_event &event, struct jsmath::js_log &js)
         {
-                if (!js.ax || js.but)
+                if (!js.ax || !js.but)
                         throw_js_exception("Unallocated memory for button inputs");
                 /* Remove initial differentiation between initial events */
                 event.type &= ~JS_EVENT_INIT;
@@ -170,11 +170,13 @@ namespace jsmath {
         }
 
         /* Uses the layout and the last read motors to get the A B C D and V(ertical) motors */
-        void map_to_send(struct jsmath::motor_vals &motors, const struct jsmath::js_log &map, const struct js_layout &layout)
+        void log_to_motors(struct jsmath::motor_vals &motors, const struct jsmath::js_log &map, const struct js_layout &layout)
         {
                 const int jsmax = 32727;
                 double rot;
                 int AB, CD;
+                if (layout.z_ax >= map.numax)
+                        throw_js_exception("Layout %d out of range %d:", layout.z_ax, map.numax);
 
                 motors.V = map_v(map.ax[layout.y_ax], jsmax, -jsmax, 1100, 1800);
                 rot = map_v(map.ax[layout.rot_ax], jsmax, -jsmax, -horizontal_mid, horizontal_mid);
@@ -187,7 +189,7 @@ namespace jsmath {
                 motors.D = fix_motor(CD - rot);
         }
 
-        void sender(int fd, struct jsmath::motor_vals motors, int opt)
+        void send_motors(int fd, struct jsmath::motor_vals &motors, int opt)
         {
                 Bstrlib::CBString buf;
                 buf.format("A = %d\nB = %d\nC = %d\nD = %d\nV = %d\n",
@@ -196,6 +198,15 @@ namespace jsmath {
                 if (send(fd, (const char *)buf, buf.length(), opt) < 0)
                         throw_sys_exception("Send");
 
+        }
+
+        void send_motors(FILE *out, struct jsmath::motor_vals &motors)
+        {
+                Bstrlib::CBString buf;
+                buf.format("A = %d\nB = %d\nC = %d\nD = %d\nV = %d\n",
+                           motors.A, motors.B, motors.C, motors.D, motors.V);
+
+                fprintf(out, (const char *)buf);
         }
 
 }

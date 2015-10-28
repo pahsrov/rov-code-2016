@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <linux/joystick.h>
+#include <vector>
 #include "js.hpp"
 
 namespace jsmath {
@@ -38,5 +39,7 @@ namespace jsmath {
         void log_to_motors(struct jsmath::motor_vals &motors,
                         const struct jsmath::js_log &map, const struct js_layout &layout);
 
-        void send_motors(int fd, struct jsmath::motor_vals motors, int opt);
+        void send_motors(int fd, struct jsmath::motor_vals &motors, int opt);
+
+void send_motors(FILE *out, struct jsmath::motor_vals &motors);
 }

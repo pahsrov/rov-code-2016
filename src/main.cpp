@@ -12,28 +12,24 @@
 
 void loop(int sockfd, int jsfd, const struct js_layout &layout)
 {
-        struct js_event event;
-        struct jsmath::js_log js(jsfd);
-        struct jsmath::motor_vals motors;
-        Bstrlib::CBString input;
-
         try {
+                struct js_event event;
+                struct jsmath::motor_vals motors;
+                Bstrlib::CBString input;
+
                 jsmath::js_log js(jsfd);
-        } catch (std::exception &e) {
-                fprintf(stderr, "ERROR: %s\n", e.what());
-        }
-        while (js_read(jsfd, event) != -1 && !js_quit(event, layout) ) {
-                try {
+
+                while (js_read(jsfd, event) != -1 && !js_quit(event, layout) ) {
                         jsmath::event_to_log(event, js);
                         jsmath::log_to_motors(motors, js, layout);
                         jsmath::send_motors(sockfd, motors, 0);
+                        jsmath::send_motors(stdout, motors);
                         /* cli_read(sockfd, input); */
-                } catch (std::exception &e) {
-                        fprintf(stderr, "%s", e.what());
                 }
+        } catch (std::exception &e) {
+                fprintf(stderr, "\n%s\n", e.what());
         }
 
-        jsmath::free_input(js);
 }
 
 int main(int argc, char **argv)
@@ -85,7 +81,12 @@ int main(int argc, char **argv)
                 perror("fopen");
                 return -1;
         }
-        js_load_config(config, layout);
+
+        try {
+                js_load_config(config, layout);
+        } catch (std::exception e) {
+                fprintf(stderr, "%s", e.what());
+        }
 
 
         loop(sockfd, jsfd, layout);

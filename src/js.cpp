@@ -79,6 +79,18 @@ void js_write_config(FILE *config, const struct js_layout &layout)
         confprint("cam_ret", layout.cam_ret);
 }
 
+void js_zero_config(struct js_layout &layout)
+{
+        layout = (struct js_layout) {
+                .x_ax = 0,
+                .y_ax = 0,
+                .z_ax = 0,
+                .rot_ax = 0,
+                .quit_but = 0,
+                .cam_ret = 0
+        };
+}
+
 void js_write_def_config(FILE *config)
 {
         /* set an initial layout */
@@ -100,6 +112,7 @@ void js_config_mode(FILE *config, int fd)
 {
         struct js_event js;
         struct js_layout layout;
+
 
         /*
          * Returns a funciton that waits for either a button or an axis
@@ -146,6 +159,7 @@ void js_load_config(FILE *config, struct js_layout &layout)
         char *var;
         int val;
         int line_num = 0;       /* for error recording */
+        js_zero_config(layout);
 
         /* take input until something goes wrong */
         while (fscanf(config, "%ms = %d", &var, &val) == 2) {
