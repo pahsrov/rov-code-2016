@@ -108,6 +108,7 @@ void js_write_def_config(FILE *config)
 
 }
 
+/* need to fix */
 void js_config_mode(FILE *config, int fd)
 {
         struct js_event js;
@@ -129,8 +130,10 @@ void js_config_mode(FILE *config, int fd)
                                         err = read(fd, &js, sizeof(struct js_event));
                                 } while (js.type != type && err > 0);
 
-                                if (errno != EAGAIN)
-                                        throw_sys_exception("read");
+                                fprintf(stderr, "Read %d\n", js.number);
+
+                                /* if (errno != EAGAIN) */
+                                /*         throw_sys_exception("read: fd = %d", fd); */
                                 /* Wait for user to press enter */
                                 getchar();
 
@@ -159,10 +162,11 @@ void js_load_config(FILE *config, struct js_layout &layout)
         char *var;
         int val;
         int line_num = 0;       /* for error recording */
+        int err;
         js_zero_config(layout);
 
         /* take input until something goes wrong */
-        while (fscanf(config, "%ms = %d", &var, &val) == 2) {
+        while (err = fscanf(config, "%ms = %d", &var, &val), err > 0) {
                 line_num++;
 
                 /* match input to a variable in layout */
@@ -189,13 +193,18 @@ void js_load_config(FILE *config, struct js_layout &layout)
                         throw_js_exception("Could not parse line %d in config.\n"
                                            "%s = %d", line_num, var, val);
                 }
+                free(var);
         }
+
+        if (err == 2)
+                throw_js_exception("fscanf matching error");
 
         /* either the file ended or something went wrong */
         if (ferror(config))
                 throw_sys_exception("fscanf");
-         else if (!feof(config))
+        else if (!feof(config))
                  throw_js_exception("Unable to parse line %d in config file", line_num);
+
 }
 
 int js_num_ax(int fd)

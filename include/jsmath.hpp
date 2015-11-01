@@ -41,5 +41,6 @@ namespace jsmath {
 
         void send_motors(int fd, struct jsmath::motor_vals &motors, int opt);
 
-void send_motors(FILE *out, struct jsmath::motor_vals &motors);
+        void send_motors(int fd, struct jsmath::motor_vals &motors);
+/* void send_motors(FILE *out, struct jsmath::motor_vals &motors); */
 }

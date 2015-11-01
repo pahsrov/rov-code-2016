@@ -9,6 +9,8 @@
 #include "../include/js.hpp"
 #include "../include/exceptions.hpp"
 #include "../include/socket.hpp"
+#include "../include/args.hpp"
+
 
 void loop(int sockfd, int jsfd, const struct js_layout &layout)
 {
@@ -22,9 +24,10 @@ void loop(int sockfd, int jsfd, const struct js_layout &layout)
                 while (js_read(jsfd, event) != -1 && !js_quit(event, layout) ) {
                         jsmath::event_to_log(event, js);
                         jsmath::log_to_motors(motors, js, layout);
-                        jsmath::send_motors(sockfd, motors, 0);
-                        jsmath::send_motors(stdout, motors);
-                        /* cli_read(sockfd, input); */
+                        jsmath::send_motors(sockfd, motors);
+                        /* jsmath::send_motors(0, motors); */
+                        cli_read(sockfd, input);
+                        puts(input);
                 }
         } catch (std::exception &e) {
                 fprintf(stderr, "\n%s\n", e.what());
@@ -32,27 +35,41 @@ void loop(int sockfd, int jsfd, const struct js_layout &layout)
 
 }
 
+/* cleanup main */
 int main(int argc, char **argv)
 {
         int sockfd, jsfd;
         int port;
         FILE *config;
         struct js_layout layout;
+        struct rov_opts opt;
+        Bstrlib::CBString conf_path;
+
+        conf_path = "joystick.conf";
+
+        memset(&opt, 0, sizeof(opt));
 
         /* Ugly config mode, will replace with proper args later */
-        if (argc > 2) {
-                if (!strcmp(argv[1], "--config-mode")) {
-                        config = fopen("./joystick.conf", "w");
-                        jsfd = open(argv[2], O_RDONLY | O_NONBLOCK);
+        try {
+                handle_flags(argc, argv, opt);
+        } catch (std::exception &e) {
+                fprintf(stderr, "%s\n", e.what());
+                return -1;
+        }
 
-                        if (!config || jsfd < 0) {
-                                perror("open/fopen");
-                                return -1;
-                        }
-                        js_config_mode(config, jsfd);
-
-                        return 0;
+        if (opt.conf_mode) {
+                if (argc < 2) {
+                        fprintf(stderr, "ERROR: No joystick path given\n");
+                        return -1;
                 }
+                if (jsfd = open(argv[1], O_RDONLY), jsfd < 0) {
+                        perror("open");
+                        return -1;
+                }
+
+                config = fopen(conf_path, "w");
+                js_config_mode(config, jsfd);
+                return 0;
         }
 
         if (argc < 4) {
@@ -64,19 +81,25 @@ int main(int argc, char **argv)
         port = atoi(argv[2]);
 
         /* open network connection */
-        try {
-                sockfd = cli_sock(port, argv[3]);
-        } catch (std::exception &e) {
-                fprintf(stderr, "%s", e.what());
+        if (opt.use_stdout) {
+                sockfd = 0;
+        } else {
+                try {
+                        sockfd = cli_sock(port, argv[3]);
+                } catch (std::exception &e) {
+                        fprintf(stderr, "%s\n", e.what());
+                        return -1;
+                }
         }
+
         /* open joystick */
-        if (jsfd = open(argv[1], O_RDONLY | O_NONBLOCK), jsfd < 0) {
+        if (jsfd = open(argv[1], O_RDONLY ), jsfd < 0) {
                 perror("Unable to open joystick");
                 return -1;
         }
 
         /* read config */
-        config = fopen("../joystick.conf", "a+");
+        config = fopen(conf_path, "r");
         if (!config) {
                 perror("fopen");
                 return -1;
@@ -84,8 +107,9 @@ int main(int argc, char **argv)
 
         try {
                 js_load_config(config, layout);
-        } catch (std::exception e) {
+        } catch (std::exception &e) {
                 fprintf(stderr, "%s", e.what());
+                return -1;
         }
 
 

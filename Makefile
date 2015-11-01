@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -Wall -Wextra --std=c++11 $(OPTFLAGS)
+CXXFLAGS = -Wall -Wextra --std=c++11 $(OPTFLAGS)
 LFLAGS = -lm
 DEVFLAGS = -g
 
@@ -7,17 +7,19 @@ DEVFLAGS = -g
 SOURCES = $(wildcard src/**/*.cpp src/*.cpp src/**/*.c src/*.c)
 
 # turn c files into object files
-OBJECTS = $(patsubst %.c, %.o, $(SOURCES))
+COBJECTS = $(patsubst %.c, %.o, $(SOURCES))
+OBJECTS = $(patsubst %.cpp, %.o, $(COBJECTS))
+
 
 #find all header files
 HEADERS = $(wildcard include/*.hpp include/**/*.hpp include/**/*.h include/*.h)
-#directory where object files are stored
 NAME = rov
 
-all: $(NAME)
+all: $(HEADERS) $(NAME)
 
-$(NAME) : $(OBJECTS) $(HEADERS) $(SOURCES)
-	$(CC) $(CFLAGS) $(OBJECTS) -o $@ $(LFLAGS)
+$(NAME) : $(OBJECTS)
+	@echo "OBJECTS "$(OBJECTS)
+	$(CC) $(CFLAGS) $^ -o $@ $(LFLAGS)
 
 dev : CFLAGS =-Wall -Wextra --std=c++11 -g $(OPTFLAGS)
 dev : all

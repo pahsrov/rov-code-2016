@@ -1,6 +1,8 @@
 #include <sys/ioctl.h>          /* For ioctl() */
 #include <math.h>               /* For hypot(), fabs(), and degrees() */
 #include <sys/socket.h>
+#include <string.h>
+#include <unistd.h>
 #include "../include/bstrwrap.h" /* For CBString */
 #include "../include/jsmath.hpp" /* For function and struct definitions */
 #include "../include/exceptions.hpp"
@@ -13,6 +15,7 @@ namespace jsmath {
         const int horizontal_max = 1000;
         const int horizontal_mid = horizontal_max / 2;
         const int horizontal_offset = 1000;
+        const int jsmax = 32767;
 
         js_log::js_log(int fd) : fd(fd) {
                 numax = js_num_ax(fd);
@@ -35,6 +38,7 @@ namespace jsmath {
                         free_input(*this);
         }
 
+
         /*
         * Quadrent based on x and y coordinates. y is flipped because the joystick reads a
         * negative value at the top. Equivalent to the quadrents of the unit circle.
@@ -55,7 +59,8 @@ namespace jsmath {
         /* Converts an integer range i from [min, max] to [omin,omax] */
         double map_v(double i, double min, double max, double omin, double omax)
         {
-                return (i - min) * (omax - omin) / (max - min) + omin;
+                double rtn = (i - min) * (omax - omin) / (max - min) + omin;
+                return rtn;
         }
 
         /* Converts radians to degrees */
@@ -65,18 +70,19 @@ namespace jsmath {
         }
 
         /* Gives the radius of a circle based on x and y coordinates */
-        double r(int x, int y)
+        double r(double x, double y)
         {
-                return hypot(x, y);
+                return hypot(x, y)/jsmax;
         }
 
         /* Gives the angle of a coordinate in a circle */
-        double t(int x, int y)
+        double t(double x, double y)
         {
-                if (!y)
+                if (!x)
                         return 0;
                 return fabs(degrees(atan(y / x)));
         }
+
 
         /* Updates joystick values with an event */
         void event_to_log(struct js_event &event, struct jsmath::js_log &js)
@@ -104,6 +110,10 @@ namespace jsmath {
                 map.ax = new int[map.numax];
                 map.but = new int[map.numbut];
 
+                /* Zero array */
+                memset(map.ax, 0, sizeof(int) * map.numax);
+                memset(map.but, 0, sizeof(int) * map.numbut);
+
                 if (!map.ax || !map.but)
                         throw_sys_exception("new int[]");
                 map.allocd = 1;
@@ -129,11 +139,11 @@ namespace jsmath {
                 /* make functions that automatically use r1 and t1 with proper values */
                 auto rmap = [=](double min, double max)
                         {
-                                return map_v(r1, 0, 1, min, max);
+                                return map_v(r1, 0., 1., min, max);
                         };
                 auto tmap = [=](double min, double max)
                         {
-                                return map_v(t1, 0, 90, min, max);
+                                return map_v(t1, 0., 90., min, max);
                         };
 
                 switch(quadrent(x, y)) {
@@ -172,7 +182,6 @@ namespace jsmath {
         /* Uses the layout and the last read motors to get the A B C D and V(ertical) motors */
         void log_to_motors(struct jsmath::motor_vals &motors, const struct jsmath::js_log &map, const struct js_layout &layout)
         {
-                const int jsmax = 32727;
                 double rot;
                 int AB, CD;
                 if (layout.z_ax >= map.numax)
@@ -200,13 +209,13 @@ namespace jsmath {
 
         }
 
-        void send_motors(FILE *out, struct jsmath::motor_vals &motors)
+        void send_motors(int fd, struct jsmath::motor_vals &motors)
         {
                 Bstrlib::CBString buf;
                 buf.format("A = %d\nB = %d\nC = %d\nD = %d\nV = %d\n",
                            motors.A, motors.B, motors.C, motors.D, motors.V);
 
-                fprintf(out, (const char *)buf);
+                write(fd, (const char *)buf, buf.length());
         }
 
 }
