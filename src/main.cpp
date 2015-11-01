@@ -49,7 +49,6 @@ int main(int argc, char **argv)
 
         memset(&opt, 0, sizeof(opt));
 
-        /* Ugly config mode, will replace with proper args later */
         try {
                 handle_flags(argc, argv, opt);
         } catch (std::exception &e) {

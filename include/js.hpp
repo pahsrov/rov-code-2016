@@ -12,6 +12,7 @@ struct js_layout {
         /* add more commands as more rov control is needed (ex claw)*/
         int quit_but;           /* button to exit code */
         int cam_ret;            /* button to return servos to default position */
+        int claw_but;
 };
 
 
@@ -30,4 +31,3 @@ void js_write_config(FILE *config, const struct js_layout &layout);
 void js_write_default_config(FILE *config);
 
 void js_config_mode(FILE *config, int fd);
-

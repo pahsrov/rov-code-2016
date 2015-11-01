@@ -23,4 +23,3 @@ int js_write_config(FILE *config, const struct js_layout *layout);
 int js_write_def_config(FILE *config);
 
 void js_config_mode(FILE *config, int fd);
-
