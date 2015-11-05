@@ -53,36 +53,39 @@ int main(int argc, char **argv)
                 handle_flags(argc, argv, opt);
         } catch (std::exception &e) {
                 fprintf(stderr, "%s\n", e.what());
-                return -1;
+                return 0;
         }
 
         if (opt.conf_mode) {
-                if (argc < 2) {
-                        fprintf(stderr, "ERROR: No joystick path given\n");
-                        return -1;
-                }
-                if (jsfd = open(argv[1], O_RDONLY), jsfd < 0) {
-                        perror("open");
-                        return -1;
-                }
+                if (argc < 2)
+                        throw_js_exception("No joystick path given\n");
+
+                if (jsfd = open(argv[1], O_RDONLY | O_NONBLOCK), jsfd < 0)
+                        throw_sys_exception("open");
 
                 config = fopen(conf_path, "w");
+                if (!config)
+                        throw_sys_exception("fopen");
+
                 js_config_mode(config, jsfd);
                 return 0;
         }
 
-        if (argc < 4) {
-                fprintf(stderr, "Usage: %s JSPATH PORT IP\n", argv[0]);
-                return 0;
-        }
 
         /* get port from command line */
         port = atoi(argv[2]);
 
         /* open network connection */
         if (opt.use_stdout) {
+                if (argc < 2)
+                        throw_js_exception("No joystick path given\n");
                 sockfd = 0;
         } else {
+                if (argc < 4) {
+                        print_usage(argv[0]);
+                        return 0;
+                }
+
                 try {
                         sockfd = cli_sock(port, argv[3]);
                 } catch (std::exception &e) {
@@ -92,17 +95,13 @@ int main(int argc, char **argv)
         }
 
         /* open joystick */
-        if (jsfd = open(argv[1], O_RDONLY ), jsfd < 0) {
-                perror("Unable to open joystick");
-                return -1;
-        }
+        if (jsfd = open(argv[1], O_RDONLY ), jsfd < 0)
+                throw_sys_exception("open");
 
         /* read config */
         config = fopen(conf_path, "r");
-        if (!config) {
-                perror("fopen");
-                return -1;
-        }
+        if (!config)
+                throw_sys_exception("fopen");
 
         try {
                 js_load_config(config, layout);
@@ -110,7 +109,6 @@ int main(int argc, char **argv)
                 fprintf(stderr, "%s", e.what());
                 return -1;
         }
-
 
         loop(sockfd, jsfd, layout);
         close(sockfd);

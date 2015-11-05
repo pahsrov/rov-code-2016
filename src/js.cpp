@@ -87,7 +87,8 @@ void js_zero_config(struct js_layout &layout)
                 .z_ax = 0,
                 .rot_ax = 0,
                 .quit_but = 0,
-                .cam_ret = 0
+                .cam_ret = 0,
+                .claw_but = 0
         };
 }
 
@@ -100,7 +101,8 @@ void js_write_def_config(FILE *config)
                 .z_ax = 2,
                 .rot_ax = 3,
                 .quit_but = 4,
-                .cam_ret = 5
+                .cam_ret = 5,
+                .claw_but = 6
         };
 
         /* Apply it */
@@ -132,8 +134,8 @@ void js_config_mode(FILE *config, int fd)
 
                                 fprintf(stderr, "Read %d\n", js.number);
 
-                                /* if (errno != EAGAIN) */
-                                /*         throw_sys_exception("read: fd = %d", fd); */
+                                if (errno != EAGAIN)
+                                        throw_sys_exception("read: fd = %d", fd);
                                 /* Wait for user to press enter */
                                 getchar();
 
@@ -222,4 +224,3 @@ int js_num_but(int fd)
                 throw_sys_exception("ioctl: fd = %d", fd);
         return but;
 }
-

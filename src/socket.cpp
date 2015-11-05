@@ -41,6 +41,8 @@ int cli_sock(int port, const char *ip)
 
 void cli_read(int fd, Bstrlib::CBString &input)
 {
+        if (fd == 0)
+                return;
         int read_sz;            /* amount read */
         char buf[1024];         /* buffer for storing reads */
         while (read_sz = recv(fd, buf, sizeof(buf), MSG_DONTWAIT), read_sz > 0) /* read */

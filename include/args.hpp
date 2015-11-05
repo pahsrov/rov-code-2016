@@ -9,4 +9,6 @@ struct rov_opts {
 
 void print_help(const char *prog_name);
 
+void print_usage(const char *prog_name);
+
 void handle_flags(int &argc, char **argv, struct rov_opts &opt);

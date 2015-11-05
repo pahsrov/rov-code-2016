@@ -79,7 +79,7 @@ namespace jsmath {
         double t(double x, double y)
         {
                 if (!x)
-                        return 0;
+                        return 90;
                 return fabs(degrees(atan(y / x)));
         }
 
@@ -116,7 +116,6 @@ namespace jsmath {
 
                 if (!map.ax || !map.but)
                         throw_sys_exception("new int[]");
-                map.allocd = 1;
         }
 
         /* Deallocate memory for inputs */
@@ -129,7 +128,7 @@ namespace jsmath {
         }
 
         /* Get strafe values for the motors */
-        void get_strafe(int x, int y, int &AB, int &CD)
+        void get_strafe(int x, int y, int &AC, int &BD)
         {
                 double r1, t1;
 
@@ -149,20 +148,20 @@ namespace jsmath {
                 switch(quadrent(x, y)) {
                 case 1:
                         /* equavlent to map_v(r1, 0, 1, horizontal_mid, horizontal_max) */
-                        AB = rmap(horizontal_mid, horizontal_max);
-                        CD = tmap(horizontal_max - AB, AB);
+                        AC = rmap(horizontal_mid, horizontal_max);
+                        BD = tmap(horizontal_max - AC, AC); /* right */
                         break;
                 case 2:
-                        CD = rmap(horizontal_mid, horizontal_max);
-                        AB = tmap(CD, horizontal_max - CD);
+                        BD = rmap(horizontal_mid, horizontal_max);
+                        AC = tmap(horizontal_max - BD, BD);
                         break;
                 case 3:
-                        AB = rmap(horizontal_mid, 0);
-                        CD = tmap(AB, horizontal_max - AB);
+                        AC = rmap(horizontal_mid, 0);
+                        BD = tmap(horizontal_max - AC, AC);
                         break;
                 case 4:
-                        CD = rmap(horizontal_mid, 0);
-                        AB = tmap(horizontal_max - CD, CD);
+                        BD = rmap(horizontal_mid, 0);
+                        AC = tmap(horizontal_max - BD, BD);
                         break;
                 case 0:
                         throw_js_exception("Joystick outside of any quadrent");
@@ -183,19 +182,19 @@ namespace jsmath {
         void log_to_motors(struct jsmath::motor_vals &motors, const struct jsmath::js_log &map, const struct js_layout &layout)
         {
                 double rot;
-                int AB, CD;
+                int AC, BD;
                 if (layout.z_ax >= map.numax)
                         throw_js_exception("Layout %d out of range %d:", layout.z_ax, map.numax);
 
                 motors.V = map_v(map.ax[layout.y_ax], jsmax, -jsmax, 1100, 1800);
                 rot = map_v(map.ax[layout.rot_ax], jsmax, -jsmax, -horizontal_mid, horizontal_mid);
 
-                get_strafe(map.ax[layout.z_ax], map.ax[layout.x_ax], AB, CD);
+                get_strafe(map.ax[layout.z_ax], map.ax[layout.x_ax], AC, BD);
 
-                motors.A = fix_motor(AB + rot);
-                motors.B = fix_motor(AB - rot);
-                motors.C = fix_motor(CD + rot);
-                motors.D = fix_motor(CD - rot);
+                motors.A = fix_motor(horizontal_max - AC + rot);
+                motors.B = fix_motor(BD - rot);
+                motors.C = fix_motor(horizontal_max - AC - rot);
+                motors.D = fix_motor(BD + rot);
         }
 
         void send_motors(int fd, struct jsmath::motor_vals &motors, int opt)
