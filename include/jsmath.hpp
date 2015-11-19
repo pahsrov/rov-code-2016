@@ -22,6 +22,8 @@ namespace jsmath {
                 int fd;
 
                 js_log(int fd);
+                void update(js_event event);
+                std::array<int, 6> to_motors(const js_layout &layout);
                 js_log();
                 ~js_log();
         };

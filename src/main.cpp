@@ -9,93 +9,96 @@
 #include "../include/js.hpp"
 #include "../include/exceptions.hpp"
 #include "../include/socket.hpp"
-#include "../include/args.hpp"
+#define JS_LONG_DEBUG
+/* #include "../include/args.hpp" */
+
+const char *enough_args(int argc)
+{
+        if (argc - optind == 2)
+                return "Missing ip address";
+        else if (argc - optind == 1)
+                return "Missing port";
+        else if (argc - optind == 0)
+                return "Missing joystick path";
+        return NULL;
+}
 
 
 void loop(int sockfd, int jsfd, const struct js_layout &layout)
 {
-        try {
-                struct js_event event;
-                struct jsmath::motor_vals motors;
-                Bstrlib::CBString input;
+        struct js_event event;
+        struct jsmath::motor_vals motors;
+        Bstrlib::CBString input;
 
-                jsmath::js_log js(jsfd);
+        jsmath::js_log js(jsfd);
 
-                while (js_read(jsfd, event) != -1 && !js_quit(event, layout) ) {
-                        jsmath::event_to_log(event, js);
-                        jsmath::log_to_motors(motors, js, layout);
-                        jsmath::send_motors(sockfd, motors);
-                        /* jsmath::send_motors(0, motors); */
-                        cli_read(sockfd, input);
-                        puts(input);
-                }
-        } catch (std::exception &e) {
-                fprintf(stderr, "\n%s\n", e.what());
-        }
+        while (js_read(jsfd, event) != -1 && !js_quit(event, layout) ) {
+                jsmath::event_to_log(event, js);
+                jsmath::log_to_motors(motors, js, layout);
+                jsmath::send_motors(sockfd, motors);
+                /* jsmath::send_motors(0, motors); */
+                cli_read(sockfd, input);
+                puts(input);
 
 }
 
-/* cleanup main */
-int main(int argc, char **argv)
+void print_help(const char *prog_name)
 {
-        int sockfd, jsfd;
-        int port;
+				fprintf(stderr,
+                "Usage: %s [options] joy_path port ipaddr\n\n"
+                "Options:\n"
+                "\t-h\t\tPrint this help message and exit\n"
+                "\t-s\t\tWrite to stdout instead of a socket\n"
+                "\t-C\t\tEnter config mode\n"
+                "\t-c conf_path\tUse a different config path than usual (default: joystick.conf)\n"
+                , prog_name);
+}
+
+void rov_main(int argc, char **argv)
+{
+        int sockfd = -1, jsfd;
         FILE *config;
         struct js_layout layout;
-        struct rov_opts opt;
         Bstrlib::CBString conf_path;
-
+        int opt;
         conf_path = "joystick.conf";
 
-        memset(&opt, 0, sizeof(opt));
-
-        try {
-                handle_flags(argc, argv, opt);
-        } catch (std::exception &e) {
-                fprintf(stderr, "%s\n", e.what());
-                return 0;
+        /* handle opts */
+        while (opt = getopt(argc, argv, "hsCc:"), opt != -1) {
+                switch(opt) {
+                case 'h':
+                        print_help(argv[0]);
+                        exit(0);
+                case 's':
+                        sockfd = 0;
+                        break;
+                case 'C':
+                        //conf-mode
+                        break;
+                case 'c':
+                        conf_path = optarg;
+                        break;
+                case '?':
+                        throw_js_exception("unknown option");
+                }
         }
 
-        if (opt.conf_mode) {
-                if (argc < 2)
-                        throw_js_exception("No joystick path given\n");
-
-                if (jsfd = open(argv[1], O_RDONLY | O_NONBLOCK), jsfd < 0)
-                        throw_sys_exception("open");
-
-                config = fopen(conf_path, "w");
-                if (!config)
-                        throw_sys_exception("fopen");
-
-                js_config_mode(config, jsfd);
-                return 0;
-        }
-
-
-        /* get port from command line */
-        port = atoi(argv[2]);
-
-        /* open network connection */
-        if (opt.use_stdout) {
-                if (argc < 2)
-                        throw_js_exception("No joystick path given\n");
-                sockfd = 0;
+        if (sockfd) {
+                int port;
+                const char *msg = enough_args(argc);
+                if (msg)
+                        throw_js_exception(msg);
+                port = atoi(argv[argc - optind + 1]);
+                const char *ip = argv[argc - optind + 2];
+                sockfd = cli_sock(port, ip);
         } else {
-                if (argc < 4) {
-                        print_usage(argv[0]);
-                        return 0;
-                }
-
-                try {
-                        sockfd = cli_sock(port, argv[3]);
-                } catch (std::exception &e) {
-                        fprintf(stderr, "%s\n", e.what());
-                        return -1;
-                }
+                if (argc - optind == 0)
+                        throw_js_exception("Missing js_path");
         }
+
 
         /* open joystick */
-        if (jsfd = open(argv[1], O_RDONLY ), jsfd < 0)
+        if (jsfd = open(argv[argc - optind], O_RDONLY ), jsfd < 0)
                 throw_sys_exception("open");
 
         /* read config */
@@ -103,17 +106,24 @@ int main(int argc, char **argv)
         if (!config)
                 throw_sys_exception("fopen");
 
-        try {
-                js_load_config(config, layout);
-        } catch (std::exception &e) {
-                fprintf(stderr, "%s", e.what());
-                return -1;
-        }
+        js_load_config(config, layout);
 
         loop(sockfd, jsfd, layout);
         close(sockfd);
         close(jsfd);
         fclose(config);
+}
+
+/* cleanup main */
+int main(int argc, char **argv)
+{
+        try {
+                rov_main(argc, argv);
+        } catch (std::exception &e) {
+                fprintf(stderr, "%s\n", e.what());
+        } catch (...) {
+                fprintf(stderr, "Caught unknown exception\n");
+        }
 
         return 0;
 }
