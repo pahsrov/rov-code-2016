@@ -34,7 +34,6 @@ void loop(int sockfd, int jsfd, const struct js_layout &layout)
                 js.update(event);
                 js.to_motors(layout, motors);
                 jsmath::send_motors(sockfd, motors);
-                /* jsmath::send_motors(0, motors); */
                 cli_read(sockfd, input);
                 puts(input);
         }

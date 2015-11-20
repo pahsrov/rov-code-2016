@@ -34,7 +34,7 @@ int js_read(int fd, struct js_event &js)
          * Linux differentiates between the first inputs sent by the joystick after opening
          * all the others. This removes this behaviour.
          */
-        js.type &= JS_EVENT_INIT;
+        js.type &= ~JS_EVENT_INIT;
         return 0;
 }
 
