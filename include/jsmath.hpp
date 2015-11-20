@@ -1,7 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <linux/joystick.h>
-#include <vector>
+#include <array>
 #include "js.hpp"
 
 namespace jsmath {
@@ -22,9 +22,9 @@ namespace jsmath {
                 int fd;
 
                 js_log(int fd);
-                void update(js_event event);
+                void update(js_event &event);
                 std::array<int, 6> to_motors(const js_layout &layout);
-                js_log();
+                void to_motors(const js_layout &layout, std::array<int, 6> &motors);
                 ~js_log();
         };
 
@@ -32,17 +32,9 @@ namespace jsmath {
                 int A, B, C, D, V;
         };
 
-        void event_to_log(struct js_event &event, struct jsmath::js_log &map);
 
-        void allocate_input(struct jsmath::js_log &map);
+        /* void send_motors(int fd, std::array<int, 6> &motors, int opt); */
 
-        void free_input(struct jsmath::js_log &map);
-
-        void log_to_motors(struct jsmath::motor_vals &motors,
-                        const struct jsmath::js_log &map, const struct js_layout &layout);
-
-        void send_motors(int fd, struct jsmath::motor_vals &motors, int opt);
-
-        void send_motors(int fd, struct jsmath::motor_vals &motors);
+        void send_motors(int fd, std::array<int, 6> &motors, int opt = 0);
 /* void send_motors(FILE *out, struct jsmath::motor_vals &motors); */
 }

@@ -12,33 +12,13 @@
 #endif
 namespace jsmath {
 
+
         const int horizontal_max = 1000;
         const int horizontal_mid = horizontal_max / 2;
         const int horizontal_offset = 1000;
         const int jsmax = 32767;
 
-        js_log::js_log(int fd) : fd(fd) {
-                numax = js_num_ax(fd);
-                numbut = js_num_but(fd);
-                ax = NULL;
-                but = NULL;
-
-                allocate_input(*this);
-        }
-
-        js_log::js_log() {
-                numax = 0;
-                numbut = 0;
-                ax = NULL;
-                but = NULL;
-        }
-
-        js_log::~js_log() {
-                if (ax && but && numax && numbut)
-                        free_input(*this);
-        }
-
-
+        /* OTHER FUNCTIONS */
         /*
         * Quadrent based on x and y coordinates. y is flipped because the joystick reads a
         * negative value at the top. Equivalent to the quadrents of the unit circle.
@@ -83,40 +63,6 @@ namespace jsmath {
                 return fabs(degrees(atan(y / x)));
         }
 
-
-        /* Updates joystick values with an event */
-        void event_to_log(struct js_event &event, struct jsmath::js_log &js)
-        {
-                if (!js.ax || !js.but)
-                        throw_js_exception("Unallocated memory for button inputs");
-                /* Remove initial differentiation between initial events */
-                event.type &= ~JS_EVENT_INIT;
-                if (event.type == JS_EVENT_AXIS) {
-                        if (event.number >= js.numax)
-                                throw_js_exception("Joystick axis event out of bounds. (%d max %d)", event.number, js.numax);
-                        js.ax[event.number] = event.value;
-                } else if (event.type == JS_EVENT_BUTTON) {
-                        if (event.number >= js.numbut)
-                                throw_js_exception("Joystick button event out of bounds. (%d max %d)", event.number, js.numbut);
-                        js.but[event.number] = event.value;
-                }
-                js.last = &event;
-
-        }
-
-        /* Allocate memory for storing inputs */
-        void allocate_input(struct jsmath::js_log &map)
-        {
-                map.ax = new int[map.numax];
-                map.but = new int[map.numbut];
-
-                /* Zero array */
-                memset(map.ax, 0, sizeof(int) * map.numax);
-                memset(map.but, 0, sizeof(int) * map.numbut);
-
-                if (!map.ax || !map.but)
-                        throw_sys_exception("new int[]");
-        }
 
         /* Deallocate memory for inputs */
         void free_input(struct jsmath::js_log &map)
@@ -178,43 +124,95 @@ namespace jsmath {
                 return val + horizontal_offset;
         }
 
-        /* Uses the layout and the last read motors to get the A B C D and V(ertical) motors */
-        void log_to_motors(struct jsmath::motor_vals &motors, const struct jsmath::js_log &map, const struct js_layout &layout)
+        void send_motors(int fd, std::array<int, 6> &motors, int opt)
+        {
+                Bstrlib::CBString buf;
+                int i = 0;
+                for (auto &x : motors)
+                        buf.formata("%d=%d\n", i++, x);
+                if (write(fd, (const char *)buf, buf.length()) < 0)
+                        throw_sys_exception("send(%d, %s)", fd, (const char *)buf);
+        }
+
+
+        js_log::js_log(int fd) : fd(fd) {
+                numax = js_num_ax(fd);
+                numbut = js_num_but(fd);
+                ax = new int[numax];
+                but = new int[numbut];
+
+                if (!ax || !but)
+                        throw_sys_exception("new int[]");
+
+                /* Zero array */
+                memset(ax, 0, sizeof(int) * numax);
+                memset(but, 0, sizeof(int) * numbut);
+
+        }
+
+        js_log::~js_log() {
+                if (ax && but && numax && numbut) {
+                        delete[] ax;
+                        delete[] but;
+                }
+
+        }
+
+        /* update log with new event */
+        void js_log::update(js_event &event)
+        {
+                if (!ax || !but)
+                        throw_js_exception("Unallocated memory for button inputs");
+                /* Remove initial differentiation between initial events */
+                event.type &= ~JS_EVENT_INIT;
+                if (event.type == JS_EVENT_AXIS) {
+                        if (event.number >= numax)
+                                throw_js_exception("Joystick axis event out of bounds. (%d max %d)", event.number, numax);
+                        ax[event.number] = event.value;
+                } else if (event.type == JS_EVENT_BUTTON) {
+                        if (event.number >= numbut)
+                                throw_js_exception("Joystick button event out of bounds. (%d max %d)", event.number, numbut);
+                        but[event.number] = event.value;
+                }
+                last = &event;
+        }
+
+        std::array<int, 6> js_log::to_motors(const js_layout &layout)
+        {
+                std::array<int, 6> motors;
+
+                double rot;
+                int AC, BD;
+
+                motors[4] = map_v(ax[layout.y_ax], jsmax, -jsmax, 1100, 1800);
+                motors[5] = motors[4];
+                rot = map_v(ax[layout.rot_ax], jsmax, -jsmax, -horizontal_mid, horizontal_mid);
+
+                get_strafe(ax[layout.z_ax], ax[layout.x_ax], AC, BD);
+
+                motors[0] = fix_motor(horizontal_max - AC + rot);
+                motors[1] = fix_motor(BD - rot);
+                motors[2] = fix_motor(horizontal_max - AC - rot);
+                motors[3] = fix_motor(BD + rot);
+                return motors;
+        }
+
+        void js_log::to_motors(const js_layout &layout, std::array<int, 6> &motors)
         {
                 double rot;
                 int AC, BD;
-                if (layout.z_ax >= map.numax)
-                        throw_js_exception("Layout %d out of range %d:", layout.z_ax, map.numax);
 
-                motors.V = map_v(map.ax[layout.y_ax], jsmax, -jsmax, 1100, 1800);
-                rot = map_v(map.ax[layout.rot_ax], jsmax, -jsmax, -horizontal_mid, horizontal_mid);
+                motors[4] = map_v(ax[layout.y_ax], jsmax, -jsmax, 1100, 1800);
+                motors[5] = motors[4];
+                rot = map_v(ax[layout.rot_ax], jsmax, -jsmax, -horizontal_mid, horizontal_mid);
 
-                get_strafe(map.ax[layout.z_ax], map.ax[layout.x_ax], AC, BD);
+                get_strafe(ax[layout.z_ax], ax[layout.x_ax], AC, BD);
 
-                motors.A = fix_motor(horizontal_max - AC + rot);
-                motors.B = fix_motor(BD - rot);
-                motors.C = fix_motor(horizontal_max - AC - rot);
-                motors.D = fix_motor(BD + rot);
+                motors[0] = fix_motor(horizontal_max - AC + rot);
+                motors[1] = fix_motor(BD - rot);
+                motors[2] = fix_motor(horizontal_max - AC - rot);
+                motors[3] = fix_motor(BD + rot);
         }
 
-        void send_motors(int fd, struct jsmath::motor_vals &motors, int opt)
-        {
-                Bstrlib::CBString buf;
-                buf.format("A = %d\nB = %d\nC = %d\nD = %d\nV = %d\n",
-                           motors.A, motors.B, motors.C, motors.D, motors.V);
-
-                if (send(fd, (const char *)buf, buf.length(), opt) < 0)
-                        throw_sys_exception("Send");
-
-        }
-
-        void send_motors(int fd, struct jsmath::motor_vals &motors)
-        {
-                Bstrlib::CBString buf;
-                buf.format("A = %d\nB = %d\nC = %d\nD = %d\nV = %d\n",
-                           motors.A, motors.B, motors.C, motors.D, motors.V);
-
-                write(fd, (const char *)buf, buf.length());
-        }
 
 }

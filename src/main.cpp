@@ -27,18 +27,19 @@ const char *enough_args(int argc)
 void loop(int sockfd, int jsfd, const struct js_layout &layout)
 {
         struct js_event event;
-        struct jsmath::motor_vals motors;
         Bstrlib::CBString input;
 
         jsmath::js_log js(jsfd);
+        std::array<int, 6> motors;
 
         while (js_read(jsfd, event) != -1 && !js_quit(event, layout) ) {
-                jsmath::event_to_log(event, js);
-                jsmath::log_to_motors(motors, js, layout);
+                js.update(event);
+                js.to_motors(layout, motors);
                 jsmath::send_motors(sockfd, motors);
                 /* jsmath::send_motors(0, motors); */
                 cli_read(sockfd, input);
                 puts(input);
+        }
 
 }
 
@@ -88,8 +89,8 @@ void rov_main(int argc, char **argv)
                 const char *msg = enough_args(argc);
                 if (msg)
                         throw_js_exception(msg);
-                port = atoi(argv[argc - optind + 1]);
-                const char *ip = argv[argc - optind + 2];
+                port = atoi(argv[argc - optind + 2]);
+                const char *ip = argv[argc - optind + 3];
                 sockfd = cli_sock(port, ip);
         } else {
                 if (argc - optind == 0)
@@ -98,8 +99,8 @@ void rov_main(int argc, char **argv)
 
 
         /* open joystick */
-        if (jsfd = open(argv[argc - optind], O_RDONLY ), jsfd < 0)
-                throw_sys_exception("open");
+        if (jsfd = open(argv[argc - optind + 1], O_RDONLY ), jsfd < 0)
+                throw_sys_exception("open %s", argv[argc - optind + 1]);
 
         /* read config */
         config = fopen(conf_path, "r");
