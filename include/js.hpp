@@ -30,4 +30,4 @@ void js_write_config(FILE *config, const struct js_layout &layout);
 
 void js_write_default_config(FILE *config);
 
-void js_config_mode(FILE *config, int fd);
+void js_config_mode(FILE *config, const char *jspath);

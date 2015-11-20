@@ -1,5 +1,7 @@
 #include <unistd.h>
+#include <fcntl.h>
 #include <cerrno>
+#include <termios.h>
 #include "../include/js.hpp"
 #include "../include/bstrwrap.h"
 #include "../include/exceptions.hpp"
@@ -111,32 +113,39 @@ void js_write_def_config(FILE *config)
 }
 
 /* need to fix */
-void js_config_mode(FILE *config, int fd)
+void js_config_mode(FILE *config, const char *path)
 {
-        struct js_event js;
         struct js_layout layout;
+        int fd;
+
+        if (fd = open(path, O_RDONLY | O_NONBLOCK), fd < 0)
+                throw_sys_exception("open %s", path);
 
 
         /*
          * Returns a funciton that waits for either a button or an axis
          * To be pressed, then returns what button/axis was pressed
          */
-        auto input_builder = [&js, fd](int type)
+        auto input_builder = [fd](int type)
                 {
-                        return [&js, fd, type](const char *msg)
+                        return [fd, type](const char *msg)
                         {
-                                fprintf(stderr, "Press the %s, then press start.\n\n", msg);
-                                int err;
+
+                                struct js_event js = {0, 0, 0, 0};
+                                fprintf(stderr, "Press the %s %s, then press start.\n\n", msg, JS_EVENT_AXIS ? "axis" : "button");
                                 /* wait for button or axis */
-                                do {
-                                        err = read(fd, &js, sizeof(struct js_event));
-                                } while (js.type != type && err > 0);
+                                errno = 0;
 
-                                fprintf(stderr, "Read %d\n", js.number);
+                                /* eat events */
+                                while(errno != EAGAIN)
+                                        js_read(fd, js);
+                                js = {0, 0, 0, 0};
+                                while (js_read(fd, js), js.type != type || errno != EAGAIN)  {
+                                        errno = 0;
+                                }
 
-                                if (errno != EAGAIN)
-                                        throw_sys_exception("read: fd = %d", fd);
-                                /* Wait for user to press enter */
+                                fprintf(stderr, "Read %d, please press enter \n", js.number);
+
                                 getchar();
 
                                 return js.number;
@@ -157,6 +166,7 @@ void js_config_mode(FILE *config, int fd)
         layout.cam_ret = get_but("Camera recenter button");
 
         js_write_config(config, layout);
+        close(fd);
 }
 
 void js_load_config(FILE *config, struct js_layout &layout)

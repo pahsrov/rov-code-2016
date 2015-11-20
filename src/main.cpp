@@ -12,15 +12,14 @@
 #define JS_LONG_DEBUG
 /* #include "../include/args.hpp" */
 
-const char *enough_args(int argc)
+void enough_args(int argc)
 {
         if (argc - optind == 2)
-                return "Missing ip address";
+                throw_js_exception("Missing ip address");
         else if (argc - optind == 1)
-                return "Missing port";
+                throw_js_exception("Missing port");
         else if (argc - optind == 0)
-                return "Missing joystick path";
-        return NULL;
+                throw_js_exception("Missing joystick path");
 }
 
 
@@ -62,6 +61,7 @@ void rov_main(int argc, char **argv)
         struct js_layout layout;
         Bstrlib::CBString conf_path;
         int opt;
+        int conf_mode = 0;
         conf_path = "joystick.conf";
 
         /* handle opts */
@@ -74,22 +74,34 @@ void rov_main(int argc, char **argv)
                         sockfd = 0;
                         break;
                 case 'C':
-                        //conf-mode
+                        conf_mode = 1;
                         break;
                 case 'c':
                         conf_path = optarg;
                         break;
                 case '?':
-                        throw_js_exception("unknown option");
+                        print_help(argv[0]);
+                        exit(-1);
                 }
         }
 
+        if (conf_mode) {
+                if (config = fopen(conf_path, "w"), !config)
+                        throw_sys_exception("fopen %s", (const char *)conf_path);
+                if (argc - optind == 0)
+                        throw_js_exception("Missing js path");
+                js_config_mode(config, argv[argc - optind + 1]);
+
+                exit(0);
+                fclose(config);
+        }
+
+
         if (sockfd) {
                 int port;
-                const char *msg = enough_args(argc);
-                if (msg)
-                        throw_js_exception(msg);
-                port = atoi(argv[argc - optind + 2]);
+                enough_args(argc);
+
+                port = atoi(argv[argc - optind + 2]); 
                 const char *ip = argv[argc - optind + 3];
                 sockfd = cli_sock(port, ip);
         } else {
@@ -109,15 +121,17 @@ void rov_main(int argc, char **argv)
 
         js_load_config(config, layout);
 
+        /* loop */
         loop(sockfd, jsfd, layout);
+
         close(sockfd);
         close(jsfd);
         fclose(config);
 }
 
-/* cleanup main */
 int main(int argc, char **argv)
 {
+        /* run our main in try catch block for easy error catching */
         try {
                 rov_main(argc, argv);
         } catch (std::exception &e) {
