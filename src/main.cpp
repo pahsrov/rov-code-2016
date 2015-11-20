@@ -10,7 +10,6 @@
 #include "../include/exceptions.hpp"
 #include "../include/socket.hpp"
 #define JS_LONG_DEBUG
-/* #include "../include/args.hpp" */
 
 void enough_args(int argc)
 {
@@ -64,7 +63,7 @@ void rov_main(int argc, char **argv)
         int conf_mode = 0;
         conf_path = "joystick.conf";
 
-        /* handle opts */
+        /* handle command line args */
         while (opt = getopt(argc, argv, "hsCc:"), opt != -1) {
                 switch(opt) {
                 case 'h':
@@ -78,6 +77,7 @@ void rov_main(int argc, char **argv)
                         break;
                 case 'c':
                         conf_path = optarg;
+                        optind--;
                         break;
                 case '?':
                         print_help(argv[0]);
@@ -85,18 +85,22 @@ void rov_main(int argc, char **argv)
                 }
         }
 
+        /* if -C */
         if (conf_mode) {
                 if (config = fopen(conf_path, "w"), !config)
                         throw_sys_exception("fopen %s", (const char *)conf_path);
                 if (argc - optind == 0)
                         throw_js_exception("Missing js path");
-                js_config_mode(config, argv[argc - optind + 1]);
+                const char *jspath = argv[argc - optind + 1];
+                puts(jspath);
+                js_config_mode(config, jspath);
 
                 exit(0);
                 fclose(config);
         }
 
 
+        /* if no -s */
         if (sockfd) {
                 int port;
                 enough_args(argc);
@@ -104,7 +108,7 @@ void rov_main(int argc, char **argv)
                 port = atoi(argv[argc - optind + 2]); 
                 const char *ip = argv[argc - optind + 3];
                 sockfd = cli_sock(port, ip);
-        } else {
+        } else {                /* -s */
                 if (argc - optind == 0)
                         throw_js_exception("Missing js_path");
         }

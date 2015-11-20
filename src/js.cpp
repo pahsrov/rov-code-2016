@@ -34,6 +34,7 @@ int js_read(int fd, struct js_event &js)
          * Linux differentiates between the first inputs sent by the joystick after opening
          * all the others. This removes this behaviour.
          */
+        js.type &= JS_EVENT_INIT;
         return 0;
 }
 
@@ -131,8 +132,8 @@ void js_config_mode(FILE *config, const char *path)
                         return [fd, type](const char *msg)
                         {
 
-                                struct js_event js = {0, 0, 0, 0};
-                                fprintf(stderr, "Press the %s %s, then press start.\n\n", msg, JS_EVENT_AXIS ? "axis" : "button");
+                                struct js_event js;
+                                fprintf(stderr, "Press the %s.\n\n", msg);
                                 /* wait for button or axis */
                                 errno = 0;
 
@@ -181,7 +182,7 @@ void js_load_config(FILE *config, struct js_layout &layout)
         while (err = fscanf(config, "%ms = %d", &var, &val), err > 0) {
                 line_num++;
 
-                /* match input to a variable in layout */
+                /* match input to a variable in layout then set that variable*/
                 switch (js_match_confvar(var)) {
                 case conf_var_name::xaxis:
                         layout.x_ax = val;
@@ -219,6 +220,7 @@ void js_load_config(FILE *config, struct js_layout &layout)
 
 }
 
+/* returns number of axes on joystick */
 int js_num_ax(int fd)
 {
         int ax;
@@ -227,6 +229,7 @@ int js_num_ax(int fd)
         return ax;
 }
 
+/* return number of buttons on joystick */
 int js_num_but(int fd)
 {
         int but;
