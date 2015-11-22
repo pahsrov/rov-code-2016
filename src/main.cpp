@@ -27,13 +27,13 @@ void loop(int sockfd, int jsfd, const struct js_layout &layout)
         struct js_event event;
         Bstrlib::CBString input;
 
-        jsmath::js_log js(jsfd);
+        js_log js(jsfd);
         std::array<int, 6> motors;
 
         while (js_read(jsfd, event) != -1 && !js_quit(event, layout) ) {
                 js.update(event);
                 js.to_motors(layout, motors);
-                jsmath::send_motors(sockfd, motors);
+                send_motors(sockfd, motors);
                 cli_read(sockfd, input);
                 puts(input);
         }
@@ -48,8 +48,8 @@ void print_help(const char *prog_name)
                 "\t-h\t\tPrint this help message and exit\n"
                 "\t-s\t\tWrite to stdout instead of a socket\n"
                 "\t-C\t\tEnter config mode\n"
-                "\t-c conf_path\tUse a different config path than usual (default: joystick.conf)\n"
-                , prog_name);
+                "\t-c conf_path\tUse a different config path than joystick.conf\n",
+                prog_name);
 }
 
 void rov_main(int argc, char **argv)

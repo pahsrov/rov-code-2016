@@ -31,8 +31,8 @@ int js_read(int fd, struct js_event &js)
         }
 
         /*
-         * Linux differentiates between the first inputs sent by the joystick after opening
-         * all the others. This removes this behaviour.
+         * Linux differentiates between the first inputs sent by the joystick
+         * after opening all the others. This removes this behaviour.
          */
         js.type &= ~JS_EVENT_INIT;
         return 0;
@@ -41,7 +41,8 @@ int js_read(int fd, struct js_event &js)
 int js_quit(const struct js_event &js, const struct js_layout &layout)
 {
         /* Detects if the quit button in the layout has been pressed. */
-        if (js.value == 1 && js.type == JS_EVENT_BUTTON && js.number == layout.quit_but)
+        if (js.value == 1 && js.type == JS_EVENT_BUTTON &&
+            js.number == layout.quit_but)
                 return 1;
         return 0;
 }
@@ -141,11 +142,14 @@ void js_config_mode(FILE *config, const char *path)
                                 while(errno != EAGAIN)
                                         js_read(fd, js);
                                 js = {0, 0, 0, 0};
-                                while (js_read(fd, js), js.type != type || errno != EAGAIN)  {
+                                while (js_read(fd, js),
+                                       js.type != type || errno != EAGAIN)  {
                                         errno = 0;
                                 }
 
-                                fprintf(stderr, "Read %d, please press enter \n", js.number);
+                                fprintf(stderr,
+                                        "Read %d, please press enter \n",
+                                        js.number);
 
                                 getchar();
 
@@ -216,7 +220,8 @@ void js_load_config(FILE *config, struct js_layout &layout)
         if (ferror(config))
                 throw_sys_exception("fscanf");
         else if (!feof(config))
-                 throw_js_exception("Unable to parse line %d in config file", line_num);
+                 throw_js_exception("Unable to parse line %d in config file",
+                                    line_num);
 
 }
 

@@ -28,7 +28,6 @@ int cli_sock(int port, const char *ip)
         /* ip -> opt, turn localhost to the right ip */
         if (bip == "localhost")
                 bip = "127.0.0.1";
-
         if (inet_pton(AF_INET, (const char *)bip, &opt.sin_addr) <= 0)
                 throw_sys_exception("inet_pton");
 
@@ -45,7 +44,8 @@ void cli_read(int fd, Bstrlib::CBString &input)
                 return;
         int read_sz;            /* amount read */
         char buf[1024];         /* buffer for storing reads */
-        while (read_sz = recv(fd, buf, sizeof(buf), MSG_DONTWAIT), read_sz > 0) /* read */
+        while (read_sz = recv(fd, buf, sizeof(buf), MSG_DONTWAIT),
+               read_sz > 0) /* read */
                 input += buf;   /* concatenate buf onto the end of input */
 
         /*

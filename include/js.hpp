@@ -10,8 +10,8 @@ struct js_layout {
         int x_ax, y_ax, z_ax, rot_ax;
 
         /* add more commands as more rov control is needed (ex claw)*/
-        int quit_but;           /* button to exit code */
-        int cam_ret;            /* button to return servos to default position */
+        int quit_but;           /* exit program button */
+        int cam_ret;            /* return servos to default position */
         int claw_but;
 };
 

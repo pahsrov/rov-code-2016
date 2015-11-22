@@ -1,40 +1,29 @@
 #pragma once
-#include <stdint.h>
 #include <linux/joystick.h>
 #include <array>
+#include <vector>
 #include "js.hpp"
 
-namespace jsmath {
+class js_log {
+private:
+        js_log();
+public:
+        /* axes */
+        std::vector<int> ax;
 
-        struct js_log {
-                /* axes */
-                int *ax;
+        /* buttons */
+        std::vector<int> but;
 
-                /* buttons */
-                int *but;
+        js_log(int fd);
+        void update(js_event &event);
+        void to_motors(const js_layout &layout, std::array<int, 6> &motors);
+        int numax();
+        int numbut();
+};
 
-                /* last event read */
-                struct js_event *last;
-
-                int numax, numbut;
-                int allocd;
-
-                int fd;
-
-                js_log(int fd);
-                void update(js_event &event);
-                std::array<int, 6> to_motors(const js_layout &layout);
-                void to_motors(const js_layout &layout, std::array<int, 6> &motors);
-                ~js_log();
-        };
-
-        struct motor_vals {
-                int A, B, C, D, V;
-        };
+struct motor_vals {
+        int A, B, C, D, V;
+};
 
 
-        /* void send_motors(int fd, std::array<int, 6> &motors, int opt); */
-
-        void send_motors(int fd, std::array<int, 6> &motors, int opt = 0);
-/* void send_motors(FILE *out, struct jsmath::motor_vals &motors); */
-}
+void send_motors(int fd, std::array<int, 6> &motors);
