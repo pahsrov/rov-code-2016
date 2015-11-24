@@ -21,7 +21,6 @@ void enough_args(int argc)
                 throw_js_exception("Missing joystick path");
 }
 
-
 void loop(int sockfd, int jsfd, const struct js_layout &layout)
 {
         struct js_event event;
@@ -35,7 +34,6 @@ void loop(int sockfd, int jsfd, const struct js_layout &layout)
                 js.to_motors(layout, motors);
                 send_motors(sockfd, motors);
                 cli_read(sockfd, input);
-                puts(input);
         }
 
 }
@@ -63,16 +61,13 @@ void rov_main(int argc, char **argv)
         conf_path = "joystick.conf";
 
         /* handle command line args */
-        while (opt = getopt(argc, argv, "hsCc:"), opt != -1) {
+        while (opt = getopt(argc, argv, "hsc:"), opt != -1) {
                 switch(opt) {
                 case 'h':
                         print_help(argv[0]);
                         exit(0);
                 case 's':
                         sockfd = 0;
-                        break;
-                case 'C':
-                        conf_mode = 1;
                         break;
                 case 'c':
                         conf_path = optarg;
@@ -84,34 +79,18 @@ void rov_main(int argc, char **argv)
                 }
         }
 
-        /* if -C */
-        if (conf_mode) {
-                if (config = fopen(conf_path, "w"), !config)
-                        throw_sys_exception("fopen %s", (const char *)conf_path);
-                if (argc - optind == 0)
-                        throw_js_exception("Missing js path");
-                const char *jspath = argv[argc - optind + 1];
-                puts(jspath);
-                js_config_mode(config, jspath);
-
-                exit(0);
-                fclose(config);
-        }
-
-
         /* if no -s */
         if (sockfd) {
                 int port;
                 enough_args(argc);
 
-                port = atoi(argv[argc - optind + 2]); 
+                port = atoi(argv[argc - optind + 2]);
                 const char *ip = argv[argc - optind + 3];
                 sockfd = cli_sock(port, ip);
         } else {                /* -s */
                 if (argc - optind == 0)
                         throw_js_exception("Missing js_path");
         }
-
 
         /* open joystick */
         if (jsfd = open(argv[argc - optind + 1], O_RDONLY ), jsfd < 0)

@@ -7,16 +7,17 @@
 class js_log {
 private:
         js_log();
-public:
         /* axes */
         std::vector<int> ax;
 
         /* buttons */
         std::vector<int> but;
+public:
 
         js_log(int fd);
-        void update(js_event &event);
+        void update(const js_event &event);
         void to_motors(const js_layout &layout, std::array<int, 6> &motors);
+        std::array<int, 6> to_motors(const js_layout &layout);
         int numax();
         int numbut();
 };

@@ -41,8 +41,7 @@ int quadrent(int x, int y)
  * For example, map_v(i, 0, 100, 0, 1000) would convert a range
  * of 0-100 to 0-1000 (so 50 in i would return 500)
  */
-inline double map_v(double i, double min, double max, double omin,
-                    double omax)
+inline double map_v(double i, double min, double max, double omin, double omax)
 {
         return (i - min) * (omax - omin) / (max - min) + omin;
 }
@@ -66,7 +65,6 @@ inline double t(double x, double y)
                 return 90;
         return fabs(degrees(atan(y / x)));
 }
-
 
 /*
  * Take the joystick's two axis values (vertical and horizontal)
@@ -108,7 +106,7 @@ void get_strafe(int x, int y, int &AC, int &BD)
 
         switch(quadrent(x, y)) {
         case 1:
-                /* map_v(r1, 0, 1, horizontal_mid, horizontal_max) */
+                /* same as map_v(r1, 0, 1, horizontal_mid, horizontal_max) */
                 AC = rmap(horizontal_mid, horizontal_max);
                 BD = tmap(horizontal_max - AC, AC); /* right */
                 break;
@@ -160,14 +158,14 @@ void send_motors(int fd, std::array<int, 6> &motors)
                                     fd, (const char *)buf);
 }
 
-
-js_log::js_log(int fd) : ax(js_num_ax(fd), 0), but(js_num_ax(fd), 0)
+/* Make vectors for buttons and axes and initialize them to zero*/
+js_log::js_log(int fd) : ax(js_num_ax(fd), 0), but(js_num_but(fd), 0)
 {
 }
 
 
 /* update log with new event */
-void js_log::update(js_event &event)
+void js_log::update(const js_event &event)
 {
         /*
          * put the value of the event (ex. 1 or 0 for a button)
@@ -176,17 +174,15 @@ void js_log::update(js_event &event)
          * For example: assuming start is button zero,
          * pressing start would set 1 into but[0]
          */
-        if (event.type == JS_EVENT_AXIS) { /* axis event */
+        if (event.type == JS_EVENT_AXIS) /* axis event */
                 ax[event.number] = event.value;
-        } else if (event.type == JS_EVENT_BUTTON) { /* button event */
+        else if (event.type == JS_EVENT_BUTTON) /* button event */
                 but[event.number] = event.value;
-        }
 }
 
 
 /* Converts from the log to the motor values to send to the arduino */
-void js_log::to_motors(const js_layout &layout,
-                       std::array<int, 6> &motors)
+void js_log::to_motors(const js_layout &layout, std::array<int, 6> &motors)
 {
         double rot;
         int AC, BD;
@@ -202,9 +198,34 @@ void js_log::to_motors(const js_layout &layout,
         /* strafe to add to motors */
         get_strafe(ax[layout.z_ax], ax[layout.x_ax], AC, BD);
 
-        /* add strafe and rotation to each motor, then add offset */
+        /* add strafe and rotation to each horizontal motor, then add offset */
         motors[0] = fix_motor(horizontal_max - AC + rot);
         motors[1] = fix_motor(BD - rot);
         motors[2] = fix_motor(horizontal_max - AC - rot);
         motors[3] = fix_motor(BD + rot);
+}
+
+std::array<int, 6> js_log::to_motors(const js_layout &layout)
+{
+        std::array<int, 6> motors;
+        double rot;
+        int AC, BD;
+
+        /* motors 4 and 5 are the 2 vertical motors */
+        motors[4] = map_v(ax[layout.y_ax], jsmax, -jsmax, 1100, 1800);
+        motors[5] = motors[4];
+
+        /* rotation to add to horizontal motors */
+        rot = map_v(ax[layout.rot_ax], jsmax, -jsmax,
+                    -horizontal_mid, horizontal_mid);
+
+        /* strafe to add to motors */
+        get_strafe(ax[layout.z_ax], ax[layout.x_ax], AC, BD);
+
+        /* add strafe and rotation to each horizontal motor, then add offset */
+        motors[0] = fix_motor(horizontal_max - AC + rot);
+        motors[1] = fix_motor(BD - rot);
+        motors[2] = fix_motor(horizontal_max - AC - rot);
+        motors[3] = fix_motor(BD + rot);
+        return motors;
 }
