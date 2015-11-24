@@ -11,14 +11,10 @@
 #include "../include/socket.hpp"
 #define JS_LONG_DEBUG
 
-void enough_args(int argc)
+void enough_args(int argc, bool port = false, bool js = true)
 {
-        if (argc - optind == 2)
-                throw_js_exception("Missing ip address");
-        else if (argc - optind == 1)
-                throw_js_exception("Missing port");
-        else if (argc - optind == 0)
-                throw_js_exception("Missing joystick path");
+        if (argc - optind - js - port - port < 0)
+                throw_js_exception("Missing arg (expected %d) -- Use -h flag for help", js + port + port);
 }
 
 void loop(int sockfd, int jsfd, const struct js_layout &layout)
@@ -45,7 +41,6 @@ void print_help(const char *prog_name)
                 "Options:\n"
                 "\t-h\t\tPrint this help message and exit\n"
                 "\t-s\t\tWrite to stdout instead of a socket\n"
-                "\t-C\t\tEnter config mode\n"
                 "\t-c conf_path\tUse a different config path than joystick.conf\n",
                 prog_name);
 }
@@ -55,10 +50,8 @@ void rov_main(int argc, char **argv)
         int sockfd = -1, jsfd;
         FILE *config;
         struct js_layout layout;
-        Bstrlib::CBString conf_path;
+        Bstrlib::CBString conf_path = "joystick.conf";
         int opt;
-        int conf_mode = 0;
-        conf_path = "joystick.conf";
 
         /* handle command line args */
         while (opt = getopt(argc, argv, "hsc:"), opt != -1) {
@@ -78,18 +71,14 @@ void rov_main(int argc, char **argv)
                         exit(-1);
                 }
         }
+        enough_args(argc, sockfd);
 
         /* if no -s */
         if (sockfd) {
                 int port;
-                enough_args(argc);
-
                 port = atoi(argv[argc - optind + 2]);
                 const char *ip = argv[argc - optind + 3];
                 sockfd = cli_sock(port, ip);
-        } else {                /* -s */
-                if (argc - optind == 0)
-                        throw_js_exception("Missing js_path");
         }
 
         /* open joystick */
@@ -97,10 +86,8 @@ void rov_main(int argc, char **argv)
                 throw_sys_exception("open %s", argv[argc - optind + 1]);
 
         /* read config */
-        config = fopen(conf_path, "r");
-        if (!config)
-                throw_sys_exception("fopen");
-
+        if (config = fopen(conf_path, "r"), !config)
+                throw_sys_exception("fopen(%s)", (const char *)conf_path);
         js_load_config(config, layout);
 
         /* loop */

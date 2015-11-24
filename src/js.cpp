@@ -38,7 +38,7 @@ int js_read(int fd, struct js_event &js)
         return 0;
 }
 
-inline int js_quit(const struct js_event &js, const struct js_layout &layout)
+int js_quit(const struct js_event &js, const struct js_layout &layout)
 {
         /* Detects if the quit button in the layout has been pressed. */
         if (js.value == 1 && js.type == JS_EVENT_BUTTON &&
