@@ -4,18 +4,27 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/socket.h>
+#include <time.h>
 #include "../include/bstrwrap.h"
 #include "../include/jsmath.hpp"
 #include "../include/js.hpp"
 #include "../include/exceptions.hpp"
 #include "../include/socket.hpp"
 #define JS_LONG_DEBUG
+#define LOOPTIME 1/60.
+#define NANO 1E9
+int usleep(useconds_t usec);
 
 void enough_args(int argc, bool port = false, bool js = true)
 {
         if (argc - optind - js - port - port < 0)
                 throw_js_exception("Missing arg (expected %d) -- Use -h flag for help", js + port + port);
 }
+
+long clock_dif(struct timespec *oldtime, struct timespec *newtime)
+{
+	return newtime->tv_sec * NANO - oldtime->tv_sec * NANO +
+		newtime->tv_nsec - oldtime->tv_nsec;
 
 void loop(int sockfd, int jsfd, const struct js_layout &layout)
 {
@@ -24,12 +33,20 @@ void loop(int sockfd, int jsfd, const struct js_layout &layout)
 
         js_log js(jsfd);
         std::array<int, 6> motors;
+        struct timespec oldtime, newtime, waittime;
 
         while (js_read(jsfd, event) != -1 && !js_quit(event, layout) ) {
+		clock_gettime(CLOCK_REALTIME, &oldtime);
                 js.update(event);
                 js.to_motors(layout, motors);
                 send_motors(sockfd, motors);
+                //send_motors(0, motors);
                 cli_read(sockfd, input);
+                //usleep(100);
+                clock_gettime(CLOCK_REALTIME, &newtime);
+                waittime.tv_nsec = clock_dif(&oldtime, &newtime);
+                nanosleep(&waittime, NULL);
+                
         }
 
 }
@@ -72,24 +89,30 @@ void rov_main(int argc, char **argv)
                 }
         }
         enough_args(argc, sockfd);
+        printf("sockfd\n");
 
         /* if no -s */
         if (sockfd) {
                 int port;
-                port = atoi(argv[argc - optind + 2]);
-                const char *ip = argv[argc - optind + 3];
+                port = atoi(argv[optind + 1]);
+                const char *ip = argv[optind + 2];
+                printf("IP: %s\n%s\n", ip, argv[optind + 1]);
+                for (int it = 0; it < argc; it++)
+                	printf("%d = %s\n", it, argv[it]);
                 sockfd = cli_sock(port, ip);
         }
 
         /* open joystick */
-        if (jsfd = open(argv[argc - optind + 1], O_RDONLY ), jsfd < 0)
-                throw_sys_exception("open %s", argv[argc - optind + 1]);
+        if (jsfd = open(argv[optind], O_RDONLY), jsfd < 0)
+                throw_sys_exception("open %s", argv[optind]);
+	printf("config\n");
 
         /* read config */
         if (config = fopen(conf_path, "r"), !config)
                 throw_sys_exception("fopen(%s)", (const char *)conf_path);
         js_load_config(config, layout);
 
+printf("loop\n");
         /* loop */
         loop(sockfd, jsfd, layout);
 

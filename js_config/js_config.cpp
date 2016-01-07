@@ -39,9 +39,9 @@ void js_config_mode(FILE *config, int fd)
 
                                 /* eat events */
                                 while(errno != EAGAIN)
-                                        js_read(fd, js);
+                                        read(fd, &js, sizeof(js));
                                 js = {0, 0, 0, 0};
-                                while (js_read(fd, js),
+                                while (read(fd, &js, sizeof(js)),
                                        js.type != type || errno != EAGAIN)  {
                                         errno = 0;
                                 }
@@ -78,7 +78,7 @@ int main(int argc, char **argv)
         int jsfd;
         FILE *config;
         if (argc < 3) {
-                fprintf(stderr, "Usage: %s JSPATH CONFPATH", argv[0]);
+                fprintf(stderr, "Usage: %s JSPATH CONFPATH\n", argv[0]);
                 return 0;
         }
 

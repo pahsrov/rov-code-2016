@@ -150,8 +150,9 @@ void send_motors(int fd, std::array<int, 6> &motors)
          * ex. 1=2000 means set motor 1 to 2000 (full forward)
          */
         for (auto &x : motors)
-                buf.formata("%d=%d\n", i++, x);
-
+                buf.formata("%d=%d,", i++, x);
+        buf += "\n";
+                
         /* send the string to the arduino */
         if (write(fd, (const char *)buf, buf.length()) < 0)
                 throw_sys_exception("send(%d, %s)",

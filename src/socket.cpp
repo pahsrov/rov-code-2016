@@ -2,6 +2,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <errno.h>
+#include <stdio.h>
 #include "../include/bstrwrap.h"
 #include "../include/exceptions.hpp"
 #include "../include/socket.hpp"
@@ -23,6 +24,9 @@ int cli_sock(int port, const char *ip)
         /* Get socket to write to */
         if (fd = socket(AF_INET, SOCK_STREAM, 0), fd < 0)
                 throw_sys_exception("socket");
+                
+        printf("%s\n", (const char *)bip);
+        
 
 
         /* ip -> opt, turn localhost to the right ip */
@@ -44,6 +48,7 @@ void cli_read(int fd, Bstrlib::CBString &input)
                 return;
         int read_sz;            /* amount read */
         char buf[1024];         /* buffer for storing reads */
+        input = "";
         while (read_sz = recv(fd, buf, sizeof(buf), MSG_DONTWAIT),
                read_sz > 0) /* read */
                 input += buf;   /* concatenate buf onto the end of input */

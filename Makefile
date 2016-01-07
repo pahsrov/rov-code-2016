@@ -32,3 +32,6 @@ dev : all
 
 clean:
 	rm -f src/*.o src/*.d
+
+config:
+	$(CC) js_config/js_config.cpp $(CXXFLAGS) -o make_config
